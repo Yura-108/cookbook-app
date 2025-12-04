@@ -14,12 +14,12 @@ const PUBLIC_PATHS = [
   '/favicon.ico'
 ];
 
-// Определение доступа к маршрутам по ролям
-const ROLE_ACCESS: Record<string, UserRole[]> = {
-  '/clients': ['FREELANCER', 'ADMIN'],
-  '/invoices': ['FREELANCER', 'ADMIN', 'CLIENT'],
-  '/invoices/new': ['FREELANCER', 'ADMIN'],
-};
+// Определение доступа к маршрутам по ролям (отсортировано по специфичности - длинные маршруты первыми)
+const ROLE_ACCESS: Array<{ route: string; roles: UserRole[] }> = [
+  { route: '/invoices/new', roles: ['FREELANCER', 'ADMIN'] },
+  { route: '/invoices', roles: ['FREELANCER', 'ADMIN', 'CLIENT'] },
+  { route: '/clients', roles: ['FREELANCER', 'ADMIN'] },
+];
 
 export async function middleware(request: NextRequest) {
   const {pathname} = request.nextUrl;
@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
     const userRole = (token.role as UserRole) || 'FREELANCER';
 
     // Проверяем доступ по ролям для конкретных маршрутов
-    for (const [route, allowedRoles] of Object.entries(ROLE_ACCESS)) {
+    for (const { route, roles: allowedRoles } of ROLE_ACCESS) {
       if (pathname.startsWith(route)) {
         if (!allowedRoles.includes(userRole)) {
           return new NextResponse('Доступ запрещен', { status: 403 });
@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
 
     // Передаем информацию о пользователе в headers для SSR
     const response = NextResponse.next();
-    response.headers.set('x-user-id', token.id as string || '');
+    response.headers.set('x-user-id', String(token.id || ''));
     response.headers.set('x-user-role', userRole);
     return response;
   }
